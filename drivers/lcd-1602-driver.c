@@ -6,10 +6,13 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/device.h>
 
-#define DEVICE_NAME "LCD_1602"
+#define DEVICE_NAME "lcd-1602"
+#define CLASS_NAME = "lcd-1602"
 
 dev_t dev = 0;
+static struct class* device_class;
 
 /**
  * LCD_1602_driver_init(void) - Init function for the 1602 driver
@@ -18,13 +21,33 @@ dev_t dev = 0;
 static int __init LCD_1602_driver_init(void)
 {
         /* Dyanmically allocate the device number */
-        if(alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME) < 0) {
-                pr_info("Unable to allocate device number. Exiting...\n");
-                return -1;
+        if (alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME) < 0) {
+                pr_err("Unable to allocate device number. Exiting...\n");
+                goto device_number_failed;
+        }
+
+        /* Create the device class */
+        device_class = class_create(THIS_MODULE, CLASS_NAME);
+        if (device_class == NULL) {
+                pr_err("Unable to create device class. Exiting...\n");
+                goto class_failed;
+        }
+
+        /* Create the device */
+        if (device_create(device_class, NULL, dev, NULL, DEVICE_NAME) == NULL) {
+                pr_err("Unable to create the device. Exiting...\n");
+                goto device_failed;
         }
 
         pr_info("1602 driver inserted.\n");
         return 0;
+
+device_failed:
+        class_destroy(device_class);
+class_failed:
+        unregister_chrdev_region(dev, 1);
+device_number_failed:
+        return -1;
 }
 
 /**
