@@ -26,14 +26,14 @@ static int __init LCD_1602_driver_init(void)
                 goto device_number_failed;
         }
 
-        /* Create the device class */
+        /* Create the entry under /sys/class/ */
         device_class = class_create(THIS_MODULE, CLASS_NAME);
         if (device_class == NULL) {
                 pr_err("Unable to create device class. Exiting...\n");
                 goto class_failed;
         }
 
-        /* Create the device */
+        /* Create the entry under /dev/ */
         if (device_create(device_class, NULL, dev, NULL, DEVICE_NAME) == NULL) {
                 pr_err("Unable to create the device. Exiting...\n");
                 goto device_failed;
