@@ -8,9 +8,17 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
+#include <linux/gpio.h>
 
 #define DEVICE_NAME "lcd-1602"
 #define CLASS_NAME "lcd-1602"
+
+#define GPIO_18 18
+#define GPIO_22 22
+#define GPIO_23 23
+#define GPIO_24 24
+#define GPIO_25 25
+#define GPIO_27 27
 
 dev_t dev = 0;
 static struct class* device_class;
@@ -75,7 +83,7 @@ static ssize_t lcd_1602_write(struct file *file,
                               loff_t *offset)
 {
         pr_info("LCD_1602 device file written to!\n");
-        return len;
+        return length;
 }
 
 static const struct file_operations fops =
@@ -120,9 +128,76 @@ static int __init LCD_1602_driver_init(void)
                 goto device_failed;
         }
 
+        /* TODO: Look into ways to make this into a single function */
+        /* Reserve GPIO_18 */
+        if(gpio_is_valid(GPIO_18) == false) {
+                pr_err("GPIO_%d is invalid\n", GPIO_18);
+                goto device_failed;
+        } else if(gpio_request(GPIO_18, "GPIO_18") < 0) {
+                pr_err("Failed to acquire GPIO_%d\n", GPIO_18);
+                goto gpio_18_failed;
+        }
+
+        /* Reserve GPIO_22 */
+        if(gpio_is_valid(GPIO_22) == false) {
+                pr_err("GPIO_%d is invalid\n", GPIO_22);
+                goto device_failed;
+        } else if(gpio_request(GPIO_22, "GPIO_22") < 0) {
+                pr_err("Failed to acquire GPIO_%d\n", GPIO_22);
+                goto gpio_22_failed;
+        }
+
+        /* Reserve GPIO_23 */
+        if(gpio_is_valid(GPIO_23) == false) {
+                pr_err("GPIO_%d is invalid\n", GPIO_23);
+                goto device_failed;
+        } else if(gpio_request(GPIO_23, "GPIO_23") < 0) {
+                pr_err("Failed to acquire GPIO_%d\n", GPIO_23);
+                goto gpio_23_failed;
+        }
+
+        /* Reserve GPIO_24 */
+        if(gpio_is_valid(GPIO_24) == false) {
+                pr_err("GPIO_%d is invalid\n", GPIO_24);
+                goto device_failed;
+        } else if(gpio_request(GPIO_24, "GPIO_24") < 0) {
+                pr_err("Failed to acquire GPIO_%d\n", GPIO_24);
+                goto gpio_24_failed;
+        }
+
+        /* Reserve GPIO_25 */
+        if(gpio_is_valid(GPIO_25) == false) {
+                pr_err("GPIO_%d is invalid\n", GPIO_25);
+                goto device_failed;
+        } else if(gpio_request(GPIO_25, "GPIO_25") < 0) {
+                pr_err("Failed to acquire GPIO_%d\n", GPIO_25);
+                goto gpio_25_failed;
+        }
+
+        /* Reserve GPIO_27 */
+        if(gpio_is_valid(GPIO_27) == false) {
+                pr_err("GPIO_%d is invalid\n", GPIO_27);
+                goto device_failed;
+        } else if(gpio_request(GPIO_27, "GPIO_27") < 0) {
+                pr_err("Failed to acquire GPIO_%d\n", GPIO_27);
+                goto gpio_27_failed;
+        }
+
         pr_info("LCD 1602 driver inserted.\n");
         return 0;
 
+gpio_27_failed:
+        gpio_free(GPIO_27);
+gpio_25_failed:
+        gpio_free(GPIO_25);
+gpio_24_failed:
+        gpio_free(GPIO_24);
+gpio_23_failed:
+        gpio_free(GPIO_23);
+gpio_22_failed:
+        gpio_free(GPIO_22);
+gpio_18_failed:
+        gpio_free(GPIO_18);
 device_failed:
         class_destroy(device_class);
 cdev_failed:
