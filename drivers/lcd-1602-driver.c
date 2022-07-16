@@ -20,9 +20,13 @@
 #define GPIO_25 25
 #define GPIO_27 27
 
+#define DISPLAY_SIZE 32
+
 dev_t dev = 0;
 static struct class* device_class;
 static struct cdev lcd_1602_cdev;
+
+static char display_buffer[DISPLAY_SIZE];
 
 /**
  * lcd_1602_open() - Callback for a call to open() on the /dev/ file
@@ -52,38 +56,114 @@ static int lcd_1602_release(struct inode *inode, struct file *file)
 
 /**
  * lcd_1602_read() - Callback for a call to read() on the /dev/ file
- * @file:
- * @buffer:
- * @length: Length of the provided buffer
- * @offset:
+ * @filp: Pointer to struct file pointer abstracting the open file
+ * @user_buffer: User space buffer provided for writing the read data
+ * @length: Length of the provided user space buffer
+ * @offset: Offset to write to in kernel space, and to read from in user space
  *
- * Return:
+ * The contents here are nearly identical to simple_write_to_buffer() from fs.h.
+ * The following will be replaced by that function if it turns out the LCD 1602
+ * instructions don't require a deviation from this logic.
+ *
+ * Return: The number of bytes read into @user_buffer
+ *
+ * In addition to the retrun value, @user_buffer will contain the contents of
+ * the display to the extent that they were requested. Additionally, @offset
+ * will be updated to contain the new offset on the kernel space data.
  */
 static ssize_t lcd_1602_read(struct file *file,
-                             char __user *buffer,
+                             char __user *user_buffer,
                              size_t length,
                              loff_t *offset)
 {
-        pr_info("LCD_1602 device file read from!\n");
-        return 0;
+        loff_t pos = *offset;
+        size_t result;
+
+        /* Check against invalid offset */
+        if(pos < 0) {
+                return -EINVAL;
+        }
+
+        /* Check against asking for an overrun, or for asking for no data */
+        if(pos >= DISPLAY_SIZE || length == 0) {
+                return 0;
+        }
+
+        /* Cap the read at how much can be read from the provided position */
+        if(length > DISPLAY_SIZE - pos) {
+                length = DISPLAY_SIZE - pos;
+        }
+
+        /* Perform the read operation */
+        result = copy_to_user(user_buffer, display_buffer + pos, length);
+        if(result == length) {
+                return  -EFAULT;
+        }
+
+        /* Update the provided offset with the results of the read operation */
+        length -= result;
+        *offset = pos + length;
+
+        return length;
 }
 
 /**
  * lcd_1602_write() - Callback for a call to write() on the /dev/ file
- * @file:
- * @buffer:
- * @length:
- * @offset:
+ * @file: Pointer to struct file pointer abstracting the open file
+ * @user_buffer: User space buffer providing the data to write
+ * @length: Length of the provided user space buffer
+ * @offset: Offset to write to in user space, and to read from in kernel space
  *
- * Return: The length of data written
+ * The contents here are nearly identical to simple_write_to_buffer() from fs.h.
+ * The following will be replaced by that function if it turns out the LCD 1602
+ * instructions don't require a deviation from this logic.
+ *
+ * Return: The number of bytes read from @user_buffer
+ *
+ * In addition to the return value, @offset will be updated to contain the new
+ * offset on the provided data.
  */
 static ssize_t lcd_1602_write(struct file *file,
-                              const char __user *buffer,
-                              size_t length,
+                              const char __user *user_buffer,
+                              size_t user_length,
                               loff_t *offset)
 {
-        pr_info("LCD_1602 device file written to!\n");
-        return length;
+        loff_t pos = *offset;
+        size_t result;
+        size_t write_length = DISPLAY_SIZE;
+
+        /* Check against invalid offset */
+        if(pos < 0) {
+                return -EINVAL;
+        }
+
+        /* Check against asking for an overrun, or for asking for no data */
+        if((pos >= user_length) || (user_length == 0)) {
+                /* I really don't like this. The internet is not totally
+                 * clear on whether the return value should be 0, or full
+                 * length in this case. I'll leave this as a todo for future
+                 * investigation, but as it stands, returning 0 causes an
+                 * infinite loop when writing >32 characters /dev/lcd-1602
+                 */
+                return user_length;
+        }
+
+        /* Cap the write at how much can be written to the provided position */
+        if(write_length > (user_length - pos)) {
+                write_length = user_length - pos;
+        }
+
+        /* Perform the write operation */
+        result = copy_from_user(display_buffer + pos, user_buffer, user_length);
+        if(result == write_length) {
+                return  -EFAULT;
+        }
+
+        /* Update the provided offset with the results of the read operation */
+        write_length -= result;
+        *offset = pos + write_length;
+
+        return write_length;
 }
 
 static const struct file_operations fops =
