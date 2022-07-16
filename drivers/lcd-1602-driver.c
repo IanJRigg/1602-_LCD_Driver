@@ -294,6 +294,13 @@ device_number_failed:
  */
 static void __exit LCD_1602_driver_exit(void)
 {
+        gpio_free(GPIO_27);
+        gpio_free(GPIO_25);
+        gpio_free(GPIO_24);
+        gpio_free(GPIO_23);
+        gpio_free(GPIO_22);
+        gpio_free(GPIO_18);
+        class_destroy(device_class);
         unregister_chrdev_region(dev, 1);
         pr_info("1602 driver removed.\n");
 }
